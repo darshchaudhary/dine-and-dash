@@ -1,0 +1,27 @@
+{
+  "name": "Dine&Dash — Georgia Tech Dining Planner",
+  "short_name": "Dine&Dash",
+  "description": "Personalized portions from today's Georgia Tech dining hall menus.",
+  "start_url": "/#today",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#051e39",
+  "theme_color": "#051e39",
+  "icons": [
+    {
+      "src": "/assets/app-icon.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Open my plate",
+      "short_name": "My plate",
+      "url": "/#plate",
+      "icons": [{ "src": "/assets/app-icon.png", "sizes": "1254x1254" }]
+    }
+  ]
+}

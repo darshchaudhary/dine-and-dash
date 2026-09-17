@@ -1,0 +1,174 @@
+/* The app frame never scrolls. Only the main content owns vertical scrolling. */
+:root {
+  --green: #173651;
+  --green-soft: #f0f4f7;
+  --gold: #8c7442;
+  --shadow: none;
+  --line: #e7ebee;
+}
+html, body, #root { height: 100%; overflow: hidden; overscroll-behavior: none; }
+html, body { background: #fff; }
+body { min-height: 0; }
+button, a { touch-action: manipulation; }
+.loading-screen { min-height: 100%; }
+.app-shell {
+  height: 100%; height: 100dvh; min-height: 0;
+  display: flex; flex-direction: column; overflow: hidden;
+  padding: 0; background: #fff;
+}
+.topbar {
+  position: relative; top: auto; flex: 0 0 auto;
+  height: calc(72px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) max(24px, calc((100vw - 1040px) / 2)) 0;
+  border-bottom: 1px solid var(--line); background: #fff;
+}
+.dashboard {
+  flex: 1 1 0; min-height: 0; width: 100%; margin: 0;
+  padding: 40px max(24px, calc((100% - 1040px) / 2));
+  overflow-y: auto; overflow-x: hidden; overscroll-behavior-y: contain;
+  scroll-padding-block: 24px; -webkit-overflow-scrolling: touch;
+  isolation: isolate;
+}
+.dashboard:focus { outline: none; }
+.app-shell > footer { flex: 0 0 auto; min-height: 42px; font-size: 10px; }
+.brand { font-size: 20px; }
+.brand-mark { background: transparent; color: var(--navy); width: 24px; }
+.brand-inverse .brand-mark { background: transparent; color: white; }
+.icon-button { border: 0; background: transparent; width: 44px; height: 44px; }
+.button { min-height: 46px; box-shadow: none !important; }
+.welcome-row h1 { margin: 0; font-size: 32px; letter-spacing: -1.2px; }
+.welcome-row p { font-size: 15px; margin-top: 8px; }
+.hall-section { margin-top: 30px; }
+.section-label { color: var(--muted); font-size: 12px; font-weight: 500; }
+.hall-picker {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%; margin: 10px 0 0; padding: 4px; gap: 4px;
+  background: #f3f5f7; border-radius: 12px; overflow: visible;
+}
+.hall-picker button, .hall-picker button.selected {
+  justify-content: center; min-height: 44px; min-width: 0;
+  padding: 9px 6px; border: 1px solid transparent; border-radius: 8px;
+  background: transparent; box-shadow: none; text-align: center;
+}
+.hall-picker button strong { font-size: 13px; font-weight: 500; }
+.hall-picker button.selected { background: white; border-color: #e3e8ec; }
+.hall-picker button.selected strong { font-weight: 700; }
+.hall-picker button:hover { transform: none; box-shadow: none; }
+.hall-hours { margin-top: 10px; font-size: 11px; color: var(--muted); line-height: 1.6; }
+.today-overview { display: flex; flex-direction: column; gap: 18px; margin-top: 24px; }
+.today-plan-card { display: block; min-height: 0; background: #fff; border: 1px solid var(--line); border-radius: 16px; box-shadow: none; }
+.today-plan-copy { display: block; padding: 28px; color: var(--navy); }
+.meal-source { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); line-height: 1.6; }
+.live-dot, .demo-dot { width: 5px; height: 5px; box-shadow: none; flex-shrink: 0; }
+.today-plan-copy h2 { margin-top: 12px; max-width: none; font-size: 26px; line-height: 1.25; letter-spacing: -0.8px; }
+.today-macros { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin: 25px 0 20px; width: 100%; }
+.today-macros span { min-width: 0; padding: 0 18px; border: 0; border-left: 1px solid var(--line); border-radius: 0; color: var(--muted); font-size: 11px; }
+.today-macros span:first-child { padding-left: 0; border: 0; }
+.today-macros strong { color: var(--navy); font-size: 23px; font-weight: 600; }
+.preview-list { display: grid; margin: 0; }
+.preview-list > div { grid-template-columns: minmax(0, 1fr) auto; gap: 16px; min-height: 48px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.preview-list p { font-size: 13px; color: #425260; }
+.preview-list > div > strong { max-width: 120px; text-align: right; font-size: 12px; font-weight: 500; }
+.mobile-cta { width: 100%; margin-top: 24px; background: var(--navy); color: #fff; }
+.mobile-cta:hover { background: #173651; }
+.menu-note { font-size: 12px; line-height: 1.6; color: #766432; }
+.today-safety-card { padding: 0 2px 8px; border: 0; background: none; align-items: flex-start; gap: 10px; color: var(--muted); }
+.today-safety-card strong { font-size: 12px; font-weight: 500; text-transform: capitalize; color: #425260; }
+.today-safety-card span { font-size: 12px; line-height: 1.6; text-transform: none; color: var(--muted); }
+.plate-view-heading h1 { font-size: 30px; }
+.plate-view-heading .eyebrow, .plate-card-header .eyebrow { display: none; }
+.plate-summary { grid-template-columns: 132px minmax(0, 1fr); gap: 24px; background: #fafbfc; }
+.plate-card-header h2 { margin-top: 0; font-size: 20px; }
+.source-badge { border: 0; padding-inline: 0; }
+.food-title h3 { white-space: normal; line-height: 1.5; }
+.food-icon { background: #f3f5f7 !important; color: var(--navy) !important; }
+.food-check { width: 28px; height: 28px; }
+.portion-control button { width: 40px; height: 36px; }
+.safety-footer { background: #f5f7f9; border-color: var(--line); color: #425260; }
+.safety-footer p { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.daily-card { box-shadow: none; }
+.mobile-tabbar { flex: 0 0 auto; }
+
+/* A dedicated toolbar reserves space for closing; the step tracker is a separate row. */
+.setup-shell { height: 100%; height: 100dvh; min-height: 0; overflow-y: auto; overscroll-behavior: none; grid-template-columns: minmax(260px, 0.7fr) minmax(0, 1.3fr); }
+.setup-aside { min-height: 100%; padding: 40px; }
+.setup-copy { margin-top: 90px; }
+.setup-copy h1 { font-size: 38px; letter-spacing: -1.5px; }
+.setup-copy p { font-size: 15px; }
+.setup-panel { width: min(560px, calc(100% - 64px)); padding: 24px 0; margin: auto; min-width: 0; }
+.setup-toolbar { display: flex; justify-content: space-between; align-items: center; min-height: 48px; gap: 16px; margin-bottom: 24px; }
+.setup-toolbar > span { font-size: 13px; font-weight: 600; color: var(--muted); }
+.setup-toolbar .close-button { position: static; flex: 0 0 44px; border: 1px solid var(--line); background: #fff; }
+.stepper { margin-bottom: 36px; }
+.step small { display: block; font-size: 11px; }
+.setup-form { min-height: 0; padding-bottom: 30px; }
+.form-heading > span { display: none; }
+.form-heading h2 { font-size: 28px; letter-spacing: -0.8px; margin-top: 0; }
+.form-heading p { font-size: 14px; }
+.field-label { margin-top: 24px; }
+.text-input { font-size: 16px; }
+.goal-grid { gap: 10px; }
+.choice-card, .choice-card.selected { padding: 18px 42px 18px 16px; min-height: 96px; border-width: 1px; box-shadow: none; }
+.choice-card.selected { background: #f5f7fa; border-color: var(--navy); }
+.choice-card:hover { transform: none; box-shadow: none; }
+.calorie-target { margin-top: 24px; background: #f8f9fa; }
+.setup-actions { position: sticky; bottom: 0; background: white; z-index: 2; padding: 16px 0 max(16px, env(safe-area-inset-bottom)); }
+
+@media (max-width: 980px) {
+  .setup-shell { display: block; }
+  .setup-aside { min-height: 0; padding: calc(20px + env(safe-area-inset-top)) 24px 16px; background: white; border-bottom: 1px solid var(--line); }
+  .setup-aside .brand, .setup-aside .brand-mark { color: var(--navy); }
+  .setup-copy, .privacy-note { display: none; }
+  .setup-panel { margin: 0 auto; }
+}
+
+@media (max-width: 720px) {
+  .topbar { height: calc(60px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) max(18px, env(safe-area-inset-right)) 0 max(18px, env(safe-area-inset-left)); gap: 12px; }
+  .topbar-actions { gap: 6px; }
+  .profile-button > span { width: 32px; height: 32px; font-size: 13px; }
+  .profile-button { min-width: 44px; min-height: 44px; justify-content: center; padding: 0; }
+  .dashboard { padding: 28px max(20px, env(safe-area-inset-right)) 32px max(20px, env(safe-area-inset-left)); }
+  .welcome-row h1 { font-size: 27px; line-height: 1.25; }
+  .welcome-row p { font-size: 14px; }
+  .hall-section { margin-top: 26px; }
+  .hall-picker button strong { font-size: 12px; }
+  .today-plan-copy { padding: 22px 20px; }
+  .today-plan-copy h2 { font-size: 23px; }
+  .today-macros { margin-top: 22px; }
+  .today-macros strong { font-size: 22px; }
+  .today-macros span { padding: 0 16px; }
+  .today-overview { margin-top: 20px; }
+  .mobile-tabbar {
+    position: relative; left: auto; right: auto; bottom: auto; z-index: 30;
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    height: calc(64px + env(safe-area-inset-bottom)); min-height: 0;
+    padding: 4px max(12px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(12px, env(safe-area-inset-left));
+    border-top: 1px solid var(--line); background: #fff; box-shadow: none;
+  }
+  .mobile-tabbar button { gap: 4px; font-size: 10px; font-weight: 500; color: #84909a; min-height: 48px; }
+  .mobile-tabbar button.active { color: var(--navy); }
+  .mobile-tabbar button.active::before { display: none; }
+  .plate-view-heading { display: block; }
+  .plate-view-heading p { max-width: none; font-size: 13px; }
+  .plate-view-heading label { margin-top: 16px; }
+  .plate-view-heading select { width: 100%; margin-top: 0; font-size: 16px; }
+  .plate-card-header { display: block; padding: 20px; }
+  .source-badge { display: flex; margin-top: 10px; }
+  .plate-summary { grid-template-columns: 94px minmax(0, 1fr); padding: 20px 16px; gap: 14px; }
+  .progress-ring { width: 94px; height: 94px; }
+  .progress-ring strong { font-size: 23px; }
+  .food-row { grid-template-columns: 28px minmax(0, 1fr); gap: 12px; }
+  .food-icon { display: none; }
+  .food-title h3 { font-size: 14px; }
+  .food-info > p { font-size: 11px; line-height: 1.6; }
+  .food-macros { font-size: 10px; flex-wrap: wrap; }
+  .portion-control { grid-column: 2; padding-top: 2px; gap: 10px; }
+  .portion-control > strong { text-align: left; font-size: 12px; }
+  .setup-panel { width: calc(100% - 40px); padding-top: 16px; padding-bottom: 0; }
+  .setup-toolbar { margin-bottom: 20px; }
+  .setup-form { min-height: 0; }
+  .form-heading h2 { font-size: 25px; }
+  .goal-grid { grid-template-columns: 1fr; }
+  .macro-inputs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .choice-card { min-height: 84px; }
+}

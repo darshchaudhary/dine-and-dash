@@ -1,0 +1,12 @@
+{
+  "appId": "com.plateful.gatech",
+  "appName": "Dine&Dash",
+  "webDir": "dist",
+  "backgroundColor": "#051e39",
+  "loggingBehavior": "none",
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": false,
+    "preferredContentMode": "mobile"
+  }
+}

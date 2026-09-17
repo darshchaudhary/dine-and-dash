@@ -1,0 +1,36 @@
+{
+  "name": "plateful-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:phone": "vite --host 0.0.0.0",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "ios:sync": "pnpm run build && cap sync ios",
+    "ios:open": "pnpm run build && cap copy ios && cap open ios",
+    "ios:run": "pnpm run ios:sync && cap run ios",
+    "ios:device": "node ./scripts/ios-device-build.mjs",
+    "ios:release": "node ./scripts/ios-device-build.mjs --hosted",
+    "test": "node --test scripts/*.test.mjs"
+  },
+  "dependencies": {
+    "@capacitor/core": "7.6.9",
+    "@capacitor/ios": "7.6.9",
+    "@vitejs/plugin-react": "6.1.1",
+    "framer-motion": "13.2.0",
+    "lucide-react": "1.41.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "7.6.9",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "eslint": "10.10.0",
+    "typescript": "7.0.2",
+    "vite": "8.2.2"
+  }
+}
