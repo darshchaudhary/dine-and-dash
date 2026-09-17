@@ -1,3 +1,4 @@
+import "./App.css";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   AlertTriangle,
@@ -600,7 +601,7 @@ function ProgressRing({ value, label, sublabel }: { value: number; label: string
 function MacroBar({ label, value, target, color }: { label: string; value: number; target: number; color: string }) {
   const reduceMotion = useReducedMotion();
   const percent = Math.min(100, value / Math.max(target, 1) * 100);
-  return <div className="macro-bar"><div><span>{label}</span><strong>{Math.round(value)}<small> / {Math.round(target)}g</small></strong></div><div className="bar-track"><motion.span className={color} style={{ width: "100%", transformOrigin: "left" }} initial={false} animate={{ scaleX: percent / 100 }} transition={{ type: "tween", duration: reduceMotion ? 0 : 0.25, ease: "easeOut" }} /></div></div>;
+  return <div className="macro-bar"><div><span>{label}</span><strong>{Math.round(value)}<small> / {Math.round(target)}g</small></strong></div><div className="bar-track"><motion.span className={color} initial={false} animate={{ scaleX: percent / 100 }} transition={{ type: "tween", duration: reduceMotion ? 0 : 0.25, ease: "easeOut" }} /></div></div>;
 }
 
 function DailyStat({ label, value, detail }: { label: string; value: string; detail: string }) {

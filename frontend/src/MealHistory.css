@@ -1,0 +1,267 @@
+/* Styles for MealHistory.tsx: daily/weekly progress and saved meals. */
+
+/* Meal logging and current-menu availability */
+
+.remove-confirm button {
+  color: inherit;
+  background: none;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+  margin: 6px;
+}
+
+.history-page {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.history-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.history-heading h1 {
+  margin: 10px 0;
+  font-size: 32px;
+  letter-spacing: -1px;
+}
+
+.history-heading p {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.history-heading .eyebrow {
+  color: #c9e0f3;
+}
+
+.history-period {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #092542;
+  border-radius: 12px;
+  padding: 4px;
+  margin-top: 28px;
+}
+
+.history-period button {
+  color: var(--muted);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  min-height: 44px;
+}
+
+.history-period button[aria-pressed="true"] {
+  color: white;
+  background: #244665;
+  border-color: #52718d;
+}
+
+.week-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 16px 0;
+  font-size: 14px;
+}
+
+.history-total {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 24px;
+  border-radius: 16px;
+}
+
+.history-total > span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.history-total > strong {
+  display: block;
+  font-size: 42px;
+  font-weight: 600;
+  margin: 12px 0;
+  letter-spacing: -1px;
+}
+
+.history-total small {
+  font-size: 17px;
+  color: var(--muted);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.history-total p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.history-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 22px;
+}
+
+.history-days button {
+  min-width: 0;
+  padding: 10px 2px;
+  color: var(--muted);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.history-days button[aria-pressed="true"] {
+  border-color: #7792a9;
+  background: var(--surface);
+  color: white;
+}
+
+.history-days span,
+.history-days small {
+  font-size: 11px;
+}
+
+.history-days strong {
+  font-size: 12px;
+  color: white;
+}
+
+.day-bar {
+  height: 100px;
+  width: min(26px, 80%);
+  display: flex;
+  align-items: flex-end;
+  background: #123453;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.day-bar i {
+  display: block;
+  width: 100%;
+  background: #bdd6eb;
+  border-radius: 5px;
+}
+
+.history-disclaimer {
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--muted);
+  margin: 18px 0 28px;
+}
+
+.history-page h2 {
+  font-size: 20px;
+  margin: 24px 0 16px;
+}
+
+.history-empty {
+  padding: 28px 20px;
+  border: 1px dashed #42617c;
+  border-radius: 14px;
+}
+
+.history-empty p {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+.history-meals {
+  display: grid;
+  gap: 14px;
+}
+
+.history-meal {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.history-meal-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.history-meal-title h3 {
+  font-size: 16px;
+  margin: 0;
+}
+
+.history-meal-title p {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: capitalize;
+  margin-top: 6px;
+  line-height: 1.6;
+}
+
+.history-meal-title > strong {
+  white-space: nowrap;
+  font-size: 18px;
+}
+
+.history-meal-title small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.history-meal ul {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+}
+
+.history-meal li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.history-meal li span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.remove-confirm {
+  font-size: 12px;
+  margin-top: 12px;
+}
+
+.remove-confirm span {
+  display: block;
+}
+
+@media (max-width: 720px) {
+  .history-heading {
+    display: block;
+  }
+
+  .history-heading h1 {
+    font-size: 28px;
+  }
+
+  .history-heading .button {
+    margin-top: 18px;
+    font-size: 13px;
+  }
+}

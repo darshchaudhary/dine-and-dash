@@ -1,12 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { MotionConfig } from "framer-motion";
+import "./main.css";
 import App from "./App";
-import "./styles.css";
-import "./app-layout.css";
-import "./theme.css";
-import "./auth.css";
-import "./journal.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

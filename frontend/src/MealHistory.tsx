@@ -1,3 +1,4 @@
+import "./MealHistory.css";
 import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, CalendarDays, Settings2 } from "lucide-react";
 import { getMealHistory, removeMeal } from "./api";
