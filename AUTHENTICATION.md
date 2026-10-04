@@ -43,6 +43,18 @@ calories from published nutrition and user-confirmed servings. Stale services,
 unknown foods, incomplete nutrition, and demo menus are rejected. Retry UUIDs use
 the same account-owned idempotency mechanism as ordinary plate logging.
 
+“Log a past meal” is available on Today and My progress. Users choose a hall,
+breakfast/lunch/dinner, and a local Eastern date/time. Authenticated
+`/api/meals/past-menu` fetches that exact published date/service; it never falls
+back to today's or demonstration foods. `/api/meals/from-past-menu` validates
+the same selection and computes calories server-side before saving the original
+consumption timestamp. Future times, nonexistent daylight-saving times, closed
+regular-schedule hours, mismatched services, and unavailable historical menus
+are rejected. Historical menus describe published offerings, not minute-by-minute
+stock or exceptional holiday hours. Backdated meals update their original day
+and week; only meals dated today affect today's remaining recommendation budget.
+These records use the existing meal table, ownership, retry keys, and removal flow.
+
 Recommendations sum all non-voided meals for the signed-in account's current
 Eastern day, including extras, then allocate remaining daily calories across the
 current and later services using breakfast/lunch/dinner weights 25/35/40. Targets

@@ -1,4 +1,4 @@
-const CACHE_NAME = "dinedash-menu-planning-v4";
+const CACHE_NAME = "dinedash-past-meals-v6";
 const APP_SHELL = [
   "/",
   "/index.html",

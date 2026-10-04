@@ -1,4 +1,4 @@
-import type { Account, CurrentMenu, Hall, MealHistory, MealRecord, MenuMealInput, Profile, Recommendation } from "./types";
+import type { Account, CurrentMenu, Hall, MealHistory, MealRecord, MenuMealInput, PastMealContext, PastMealInput, Profile, Recommendation } from "./types";
 import { authHeaders, clearSession, native, storeSession } from "./auth";
 
 function resolveApiUrl() {
@@ -120,6 +120,15 @@ export async function searchCurrentMenu(hallSlug: string, query: string): Promis
 }
 export async function logMenuFoods(payload: MenuMealInput): Promise<MealRecord> {
   return request("/api/meals/from-menu", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function searchPastMenu(hallSlug: string, context: PastMealContext, query: string): Promise<CurrentMenu> {
+  const params = new URLSearchParams({ hall_slug: hallSlug, ...context, q: query });
+  return request(`/api/meals/past-menu?${params}`);
+}
+
+export async function logPastMenuFoods(payload: PastMealInput): Promise<MealRecord> {
+  return request("/api/meals/from-past-menu", { method: "POST", body: JSON.stringify(payload) });
 }
 
 function demoRecommendation(hallSlug: string, profile: Profile): Recommendation {

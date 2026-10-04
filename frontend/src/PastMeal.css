@@ -1,0 +1,87 @@
+.past-meal {
+  width: min(600px, calc(100% - 32px));
+  max-height: calc(100dvh - 48px);
+  margin: auto;
+  padding: var(--panel-padding);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--navy);
+  color: var(--ink);
+}
+
+.past-meal::backdrop {
+  background: rgb(0 10 24 / 72%);
+  backdrop-filter: blur(5px);
+}
+
+.past-meal-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.past-meal-heading h1 {
+  margin-top: var(--space-2);
+  font-size: 26px;
+  letter-spacing: -0.8px;
+}
+
+.past-meal-heading .icon-button {
+  flex-shrink: 0;
+}
+
+.past-meal-note {
+  margin: var(--space-5) 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.past-meal-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.past-meal-fields label {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: var(--space-2);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.past-meal-fields input,
+.past-meal-fields select {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--control-height);
+  padding: var(--control-padding);
+  border: 1px solid #42617c;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.past-meal-search {
+  width: 100%;
+}
+
+.past-meal .extra-foods {
+  margin-bottom: 0;
+}
+
+@media (max-width: 440px) {
+  .past-meal-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .past-meal .extra-foods {
+    padding: var(--space-4);
+  }
+}

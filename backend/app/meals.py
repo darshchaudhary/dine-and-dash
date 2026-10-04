@@ -1,6 +1,7 @@
 """Explicit, account-owned consumption records; recommendations are never logged automatically."""
 from datetime import date, datetime, time, timedelta, timezone
 from uuid import UUID
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -12,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .auth import current_account
 from .database import get_session
 from .models import Account, MealLog
-from .nutrislice import hall_details
+from .nutrislice import hall_details, meal_for_time
 from .nutrislice import get_menu
 from . import planning
 from .recommendations import _portion
@@ -71,6 +72,88 @@ class MenuMealCreate(BaseModel):
     items: list[MenuSelection] = Field(min_length=1, max_length=20)
 
 
+class PastMealContext(BaseModel):
+    hall_slug: str = Field(min_length=1, max_length=80)
+    local_time: datetime
+    meal: Literal["breakfast", "lunch", "dinner"]
+
+    @field_validator("local_time")
+    @classmethod
+    def campus_time(cls, value):
+        if value.tzinfo is not None:
+            raise ValueError("Enter the meal's local Eastern date and time without an offset.")
+        if value.year < 2000:
+            raise ValueError("Choose a date from 2000 onward.")
+        return value
+
+
+class PastMealCreate(PastMealContext):
+    id: UUID
+    items: list[MenuSelection] = Field(min_length=1, max_length=20)
+
+
+class PastMenuQuery(PastMealContext):
+    q: str = Field(default="", max_length=100)
+
+
+async def past_menu(context: PastMealContext):
+    at = context.local_time.replace(tzinfo=EASTERN)
+    # Do not silently normalize a nonexistent clock time during spring-forward.
+    if at.astimezone(timezone.utc).astimezone(EASTERN).replace(tzinfo=None) != context.local_time:
+        raise HTTPException(422, "This Eastern time does not exist due to daylight saving time.")
+    if at > planning.now():
+        raise HTTPException(422, "Meals cannot be logged in the future.")
+    try:
+        hall = hall_details(context.hall_slug, at)
+    except ValueError as exc:
+        raise HTTPException(400, "Unknown dining hall.") from exc
+    if not hall.open_now:
+        raise HTTPException(409, f"{hall.short_name} was outside its configured hours at that time. Choose another time. Hours: {hall.hours}.")
+    if context.meal not in hall.available_meals or meal_for_time(at, hall.slug) != context.meal:
+        raise HTTPException(409, "The meal does not match this hall's service at the selected time. Breakfast is before 11 AM, lunch 11 AM–5 PM, and dinner after 5 PM, within hall hours.")
+    menu = await get_menu(hall.slug, at, context.meal)
+    if menu.source != "nutrislice" or not menu.items or menu.date != at.date() or menu.meal != context.meal:
+        raise HTTPException(503, "No published menu could be retrieved for that date and service. Try again later or choose another service. No meal has been saved.")
+    return at, hall, menu
+
+
+def matching_foods(menu, hall, query):
+    terms = query.casefold().split()
+    matches = [item for item in menu.items if all(term in f"{item.name} {item.station}".casefold() for term in terms)]
+    return {"hall": hall, "date": menu.date, "meal": menu.meal, "items": matches[:40], "match_count": len(matches),
+            "note": "Published service menu, not a guarantee of station stock. Hours and service boundaries use the configured Eastern-time schedule."}
+
+
+def selected_items(menu, selections):
+    foods = {item.id: item for item in menu.items}
+    if len({item.food_id for item in selections}) != len(selections):
+        raise HTTPException(422, "Select each food once and adjust its servings.")
+    items = []
+    for selection in selections:
+        food = foods.get(selection.food_id)
+        if not food or not food.nutrition_complete:
+            raise HTTPException(409, "A selected food is no longer listed or has incomplete nutrition. Search again.")
+        items.append(EatenItem(id=food.id, name=food.name, portion_label=_portion(food, selection.servings),
+                               calories=round(food.nutrition.calories * selection.servings, 2)))
+    return items
+
+
+@router.get("/past-menu")
+async def search_past_menu(context: PastMenuQuery = Query(), account: Account = Depends(current_account)):
+    _, hall, menu = await past_menu(context)
+    return matching_foods(menu, hall, context.q)
+
+
+@router.post("/from-past-menu", response_model=MealRecord)
+async def log_past_meal(payload: PastMealCreate, account: Account = Depends(current_account), db: AsyncSession = Depends(get_session)):
+    existing = await db.get(MealLog, (account.id, str(payload.id)))
+    if existing:
+        return existing
+    at, _, menu = await past_menu(payload)
+    return await log_meal(MealCreate(id=payload.id, consumed_at=at, hall_slug=payload.hall_slug,
+                                   meal=payload.meal, items=selected_items(menu, payload.items)), account, db)
+
+
 @router.get("/menu")
 async def search_menu(hall_slug: str, q: str = Query(default="", max_length=100), account: Account = Depends(current_account)):
     at = planning.now()
@@ -78,10 +161,7 @@ async def search_menu(hall_slug: str, q: str = Query(default="", max_length=100)
     menu = await get_menu(hall_slug, at)
     if menu.source != "nutrislice":
         raise HTTPException(503, "No live menu is available for this service. Please try again later.")
-    terms = q.casefold().split()
-    matches = [item for item in menu.items if all(term in f"{item.name} {item.station}".casefold() for term in terms)]
-    return {"hall": hall, "date": menu.date, "meal": menu.meal, "items": matches[:40], "match_count": len(matches),
-            "note": "Published menu for this service, not a real-time stock guarantee. Confirm portions, ingredients, and availability with dining staff."}
+    return matching_foods(menu, hall, q)
 
 
 @router.post("/from-menu", response_model=MealRecord)
@@ -96,16 +176,7 @@ async def log_menu_meal(payload: MenuMealCreate, account: Account = Depends(curr
         raise HTTPException(503, "The live menu is unavailable. Your food has not been logged.")
     if payload.menu_date != menu.date or payload.meal != menu.meal:
         raise HTTPException(409, "The dining service has changed. Search the current menu again before logging.")
-    foods = {item.id: item for item in menu.items}
-    items = []
-    if len({item.food_id for item in payload.items}) != len(payload.items):
-        raise HTTPException(422, "Select each food once and adjust its servings.")
-    for selection in payload.items:
-        food = foods.get(selection.food_id)
-        if not food or not food.nutrition_complete:
-            raise HTTPException(409, "A selected food is no longer listed or has incomplete nutrition. Search again.")
-        items.append(EatenItem(id=food.id, name=food.name, portion_label=_portion(food, selection.servings),
-                               calories=round(food.nutrition.calories * selection.servings, 2)))
+    items = selected_items(menu, payload.items)
     return await log_meal(MealCreate(id=payload.id, consumed_at=at, hall_slug=payload.hall_slug, meal=menu.meal, items=items), account, db)
 
 

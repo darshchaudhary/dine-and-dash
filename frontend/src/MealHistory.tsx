@@ -18,10 +18,10 @@ function monday(day: string) {
 const label = (day: string, weekday = false) => new Intl.DateTimeFormat("en-US", weekday ? { weekday: "short", timeZone: "UTC" } : { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${day}T12:00:00Z`));
 const localDay = (stamp: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(stamp));
 
-export default function MealHistory({ profile, onEdit }: { profile: Profile; onEdit: () => void }) {
+export default function MealHistory({ profile, onEdit, onLogPast, initialDay }: { profile: Profile; onEdit: () => void; onLogPast: () => void; initialDay?: string }) {
   const today = easternToday();
-  const [start, setStart] = useState(() => monday(today));
-  const [selected, setSelected] = useState(today);
+  const [start, setStart] = useState(() => monday(initialDay || today));
+  const [selected, setSelected] = useState(initialDay || today);
   const [period, setPeriod] = useState<"day" | "week">("day");
   const [history, setHistory] = useState<History | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,6 +48,7 @@ export default function MealHistory({ profile, onEdit }: { profile: Profile; onE
   const meals = history?.meals.filter(meal => period === "week" || localDay(meal.consumed_at) === selected) || [];
   return <section className="history-page">
     <header className="history-heading"><div><span className="eyebrow"><CalendarDays size={15} /> Your food journal</span><h1>My progress</h1><p>{profile.name}’s meals, one day at a time.</p></div><button className="button secondary" onClick={onEdit}><Settings2 size={17} /> Edit goals</button></header>
+    <button className="button secondary history-log-past" onClick={onLogPast}><CalendarDays size={17} /> Log a past meal</button>
     <div className="history-period" aria-label="Summary period"><button aria-pressed={period === "day"} onClick={() => setPeriod("day")}>Daily</button><button aria-pressed={period === "week"} onClick={() => setPeriod("week")}>Weekly</button></div>
     <div className="week-switch"><button className="icon-button" aria-label="Previous week" onClick={() => move(-7)}><ArrowLeft size={18} /></button><strong>{label(start)} – {label(shiftDay(start, 6))}</strong><button className="icon-button" aria-label="Next week" disabled={start >= monday(today)} onClick={() => move(7)}><ArrowRight size={18} /></button></div>
     {error && <div className="journal-error" role="alert">{error}<button onClick={() => setVersion(v => v + 1)}>Retry</button></div>}

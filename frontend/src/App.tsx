@@ -27,6 +27,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { authenticate, fetchHalls, getAccount, getMealHistory, getProfile, getRecommendation, HALLS, logMeal, logout, saveProfile } from "./api";
 import MealHistoryPage, { easternToday } from "./MealHistory";
 import ExtraFoods from "./ExtraFoods";
+import SplashScreen from "./SplashScreen";
+import PastMeal from "./PastMeal";
 import { restoreSession } from "./auth";
 import type { Account, Hall, MealRecord, Nutrition, PlateItem, Profile, Recommendation } from "./types";
 
@@ -45,6 +47,7 @@ const defaultProfile: Profile = {
 };
 
 export default function App() {
+  const reduceMotion = useReducedMotion();
   const [account, setAccount] = useState<Account | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,16 +92,29 @@ export default function App() {
     } catch (error) { setBootError(error instanceof Error ? error.message : "Could not sign out. Please retry."); }
   };
 
-  if (bootError) return <main className="auth-shell"><section className="auth-card"><Brand /><h1>Let’s reconnect.</h1><p role="alert">{bootError}</p><button className="button primary" onClick={() => window.location.reload()}>Try again</button></section></main>;
-  if (loading || (account && profileLoading)) return <LoadingScreen />;
-  if (!account) return <AuthScreen onAuthenticated={(value) => { setProfileLoading(true); setAccount(value); }} />;
-
+  const isStarting = !bootError && (loading || (!!account && profileLoading));
   return (
     <AnimatePresence mode="wait">
-      {!profile || editing ? (
-        <Onboarding key="onboarding" initial={profile || defaultProfile} onComplete={handleProfile} onClose={profile ? () => setEditing(false) : undefined} onSignOut={signOut} />
-      ) : (
-        <Dashboard key={account.id} userId={account.id} profile={profile} onEdit={() => setEditing(true)} onSignOut={signOut} />
+      {isStarting ? <SplashScreen key="splash" /> : (
+        <motion.div
+          key="app-content"
+          className="app-entry"
+          initial={{ opacity: reduceMotion ? 1 : 0, y: reduceMotion ? 0 : 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "tween", duration: reduceMotion ? 0 : 0.35, ease: "easeOut" }}
+        >
+          {bootError ? <main className="auth-shell"><section className="auth-card"><Brand /><h1>Let’s reconnect.</h1><p role="alert">{bootError}</p><button className="button primary" onClick={() => window.location.reload()}>Try again</button></section></main> : !account ? (
+            <AuthScreen onAuthenticated={(value) => { setProfileLoading(true); setAccount(value); }} />
+          ) : (
+            <AnimatePresence mode="wait">
+              {!profile || editing ? (
+                <Onboarding key="onboarding" initial={profile || defaultProfile} onComplete={handleProfile} onClose={profile ? () => setEditing(false) : undefined} onSignOut={signOut} />
+              ) : (
+                <Dashboard key={account.id} userId={account.id} profile={profile} onEdit={() => setEditing(true)} onSignOut={signOut} />
+              )}
+            </AnimatePresence>
+          )}
+        </motion.div>
       )}
     </AnimatePresence>
   );
@@ -148,15 +164,6 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (account: Account) =
       <div className="auth-privacy"><ShieldCheck size={15} /><span>Your nutrition profile is private to your account.</span></div>
     </motion.section>
   </main>;
-}
-
-function LoadingScreen() {
-  return (
-    <main className="loading-screen">
-      <Brand />
-      <LoaderCircle className="spin" size={22} />
-    </main>
-  );
 }
 
 function Brand({ inverse = false }: { inverse?: boolean }) {
@@ -323,6 +330,9 @@ function Dashboard({ userId, profile, onEdit, onSignOut }: { userId: string; pro
   const [alternativeMessage, setAlternativeMessage] = useState("");
   const [todayMeals, setTodayMeals] = useState<MealRecord[] | null>(null);
   const [historyVersion, setHistoryVersion] = useState(0);
+  const [showPastMeal, setShowPastMeal] = useState(false);
+  const [historyDay, setHistoryDay] = useState<string | undefined>();
+  const [pastNotice, setPastNotice] = useState("");
   const [hallAvailable, setHallAvailable] = useState(false);
   const [showExtra, setShowExtra] = useState(false);
   const [extraNotice, setExtraNotice] = useState("");
@@ -451,7 +461,7 @@ function Dashboard({ userId, profile, onEdit, onSignOut }: { userId: string; pro
       </header>
 
       <main ref={scrollArea} className={`dashboard view-${activeView}`} tabIndex={0} aria-label={activeView === "history" ? "Meal history" : activeView === "today" ? "Today's meal" : "Plate checklist"}>
-        {activeView === "history" ? <MealHistoryPage key={historyVersion} profile={profile} onEdit={onEdit} /> : <>
+        {activeView === "history" ? <><p role="status" className="past-save-notice">{pastNotice}</p><MealHistoryPage key={historyVersion} profile={profile} initialDay={historyDay} onEdit={onEdit} onLogPast={() => setShowPastMeal(true)} /></> : <>
         {activeView === "today" ? <>
         <section className="welcome-row">
           <div><h1>Good {dayPart()}, {profile.name}.</h1><p>What’s on your plate today?</p></div>
@@ -476,8 +486,9 @@ function Dashboard({ userId, profile, onEdit, onSignOut }: { userId: string; pro
         )}
 
         {todayMeals !== null && <button className="today-journal" onClick={() => navigate("history")}><span><strong>{Math.round(todayMeals.reduce((sum, meal) => sum + meal.calories, 0)).toLocaleString()} kcal</strong> logged today · {todayMeals.length} meals{todayMeals.some(meal => meal.hall_slug === hallSlug) ? ` · Already ate at ${currentHall.short_name}` : ""}</span><ArrowRight size={17} /></button>}
+        {activeView === "today" && <button className="button secondary past-meal-open" disabled={showExtra || savingMeal || swapping || !!pendingLog.current} onClick={() => setShowPastMeal(true)}><Clock3 size={17} /> Log a past meal</button>}
         {extraNotice && <p className="journal-status" role="status">{extraNotice}</p>}
-        {showExtra ? <ExtraFoods hall={currentHall} profile={profile} onClose={() => setShowExtra(false)} onSaved={() => { setShowExtra(false); setExtraNotice("Extra foods saved. Your daily total and next suggestion have been updated."); setHistoryVersion(v => v + 1); load(); }} /> : <button className="button secondary extra-open" disabled={!hallAvailable || loading || savingMeal || swapping || !!pendingLog.current} onClick={() => { setExtraNotice(""); setShowExtra(true); }}>Ate something else? Search this hall’s menu <Plus size={17} /></button>}
+        {showExtra ? <ExtraFoods hall={currentHall} profile={profile} onClose={() => setShowExtra(false)} onSaved={() => { setShowExtra(false); setExtraNotice("Extra foods saved. Your daily total and next suggestion have been updated."); setHistoryVersion(v => v + 1); load(); }} /> : <button className="button secondary extra-open" disabled={!hallAvailable || loading || savingMeal || swapping || !!pendingLog.current} onClick={() => { setExtraNotice(""); setShowExtra(true); }}>Ate something else? <Plus size={17} aria-hidden="true" /></button>}
 
         <AnimatePresence mode="wait">
           {loading ? <PlateSkeleton key="loading" /> : error ? <ErrorState key="error" message={error} onRetry={load} /> : !hallAvailable ? <section className="closed-hall" role="status"><Clock3 size={26} /><h2>{currentHall.short_name} is closed</h2><p>Plate building is disabled. Select an open dining hall or come back during service.</p><p>{currentHall.hours}</p><small>Based on configured regular hours; holiday hours may differ.</small></section> : recommendation && (
@@ -538,6 +549,11 @@ function Dashboard({ userId, profile, onEdit, onSignOut }: { userId: string; pro
         <button disabled={!hallAvailable} className={activeView === "plate" ? "active" : ""} onClick={() => navigate("plate")}><ClipboardList size={21} /><span>My plate</span></button>
         <button className={activeView === "history" ? "active" : ""} onClick={() => navigate("history")}><UserRound size={21} /><span>My progress</span></button>
       </nav>
+      {showPastMeal && <PastMeal halls={halls} initialHall={hallSlug} profile={profile} onClose={() => setShowPastMeal(false)} onSaved={record => {
+        const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(record.consumed_at));
+        setHistoryDay(day); setHistoryVersion(value => value + 1); setPastNotice(`Meal saved for ${day}. Your daily and weekly totals have been updated.`);
+        setShowPastMeal(false); navigate("history"); load();
+      }} />}
     </div>
   );
 }

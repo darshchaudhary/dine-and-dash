@@ -1,6 +1,6 @@
 require_relative '../../node_modules/.pnpm/@capacitor+ios@7.6.9_@capacitor+core@7.6.9/node_modules/@capacitor/ios/scripts/pods_helpers'
 
-platform :ios, '14.0'
+platform :ios, '15.0'
 use_frameworks!
 
 # workaround to avoid Xcode caching of Pods that requires
@@ -21,4 +21,13 @@ end
 
 post_install do |installer|
   assertDeploymentTarget(installer)
+  # Xcode 27 no longer supports an iOS deployment target below 15.0.
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      minimum = config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+      if minimum.nil? || Gem::Version.new(minimum) < Gem::Version.new('15.0')
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+      end
+    end
+  end
 end

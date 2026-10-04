@@ -15,6 +15,8 @@ export type MenuFood = {
 };
 export type CurrentMenu = { hall: Hall; date: string; meal: string; items: MenuFood[]; match_count: number; note: string };
 export type MenuMealInput = { id: string; hall_slug: string; menu_date: string; meal: string; items: { food_id: string; servings: number }[] };
+export type PastMealContext = { local_time: string; meal: "breakfast" | "lunch" | "dinner" };
+export type PastMealInput = MenuMealInput & { local_time: string };
 
 export type Nutrition = {
   calories: number;

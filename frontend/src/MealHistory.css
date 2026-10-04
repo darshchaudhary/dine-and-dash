@@ -2,6 +2,11 @@
 
 /* Meal logging and current-menu availability */
 
+.history-log-past {
+  margin-top: var(--space-5);
+  width: 100%;
+}
+
 .remove-confirm button {
   color: inherit;
   background: none;
@@ -73,7 +78,7 @@
 .history-total {
   background: var(--surface);
   border: 1px solid var(--line);
-  padding: 24px;
+  padding: var(--panel-padding);
   border-radius: 16px;
 }
 
@@ -169,7 +174,7 @@
 }
 
 .history-empty {
-  padding: 28px 20px;
+  padding: var(--panel-padding);
   border: 1px dashed #42617c;
   border-radius: 14px;
 }
@@ -186,7 +191,7 @@
 }
 
 .history-meal {
-  padding: 20px;
+  padding: var(--panel-padding);
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--surface);

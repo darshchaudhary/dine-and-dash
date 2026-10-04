@@ -10,7 +10,7 @@
 }
 
 .extra-foods {
-  padding: 24px;
+  padding: var(--panel-padding);
   border: 1px solid var(--line);
   background: var(--surface);
   border-radius: 16px;
@@ -45,8 +45,9 @@
   gap: 10px;
   border: 1px solid #7891a7;
   border-radius: 10px;
-  padding: 12px;
-  margin-top: 16px;
+  min-height: var(--control-height);
+  padding: var(--control-padding);
+  margin-top: var(--space-4);
 }
 
 .extra-search input {
@@ -57,6 +58,17 @@
   color: white;
   font: inherit;
   font-size: 16px;
+  padding: 0;
+  line-height: 1.5;
+}
+
+.extra-search:focus-within {
+  outline: 2px solid #d3e6f7;
+  outline-offset: 4px;
+}
+
+.extra-search input:focus-visible {
+  outline: none;
 }
 
 .extra-results {
@@ -71,7 +83,7 @@
   justify-content: space-between;
   gap: 10px;
   border-bottom: 1px solid var(--line);
-  padding: 14px 0;
+  padding: var(--space-4) 0;
 }
 
 .extra-results .icon-button {
@@ -107,7 +119,7 @@
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  padding: 12px 0;
+  padding: var(--space-4) 0;
   border-bottom: 1px solid var(--line);
 }
 
@@ -126,10 +138,10 @@
   color: white;
   border: 1px solid #7891a7;
   border-radius: 6px;
-  min-height: 44px;
+  min-height: var(--control-height);
   margin-left: 10px;
   font-size: 16px;
-  padding: 4px 8px;
+  padding: var(--control-padding);
 }
 
 .extra-foods > .button {
