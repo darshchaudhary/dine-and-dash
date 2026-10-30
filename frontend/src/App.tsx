@@ -24,7 +24,8 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { authenticate, fetchHalls, getAccount, getMealHistory, getProfile, getRecommendation, HALLS, logMeal, logout, saveProfile } from "./api";
+import PlannerSettings from "./PlannerSettings";
+import { saveFoodFeedback, authenticate, fetchHalls, getAccount, getMealHistory, getProfile, getRecommendation, HALLS, logMeal, logout, saveProfile } from "./api";
 import MealHistoryPage, { easternToday } from "./MealHistory";
 import ExtraFoods from "./ExtraFoods";
 import SplashScreen from "./SplashScreen";
@@ -323,6 +324,9 @@ function Dashboard({ userId, profile, onEdit, onSignOut }: { userId: string; pro
   const [error, setError] = useState<string | null>(null);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
   const [excluded, setExcluded] = useState<string[]>([]);
+  const [lockedFoods, setLockedFoods] = useState<Set<string>>(new Set());
+  const [feedbackVersion, setFeedbackVersion] = useState(0);
+  const [feedbackBusy, setFeedbackBusy] = useState(false);
   const [swapping, setSwapping] = useState(false);
   const [savingMeal, setSavingMeal] = useState(false);
   const [logged, setLogged] = useState(false);
@@ -341,13 +345,13 @@ function Dashboard({ userId, profile, onEdit, onSignOut }: { userId: string; pro
   const requestVersion = useRef(0);
   const menuAt = useRef("");
   const lastHallOpen = useRef(false);
-  const plateLocked = !hallAvailable || showExtra || swapping || savingMeal || logged || !!pendingLog.current;
+  const plateLocked = feedbackBusy || !hallAvailable || showExtra || swapping || savingMeal || logged || !!pendingLog.current;
 
   const load = useCallback(async () => {
     if (logLock.current || pendingLog.current) return;
     const version = ++requestVersion.current;
     setLoading(true); setError(null); setCompleted(new Set());
-    setExcluded([]); setLogged(false); setMealError(""); setAlternativeMessage(""); setSwapping(false);
+    setExcluded([]); setLockedFoods(new Set()); setLogged(false); setMealError(""); setAlternativeMessage(""); setSwapping(false);
     try {
       const fresh = await fetchHalls();
       if (version !== requestVersion.current) return;
@@ -369,19 +373,34 @@ function Dashboard({ userId, profile, onEdit, onSignOut }: { userId: string; pro
     return () => { stale = true; };
   }, [historyVersion, activeView]);
 
-  const findAlternative = async (id: string) => {
+  const findAlternative = async (id?: string) => {
     if (!recommendation || plateLocked) return;
     const version = ++requestVersion.current;
-    const nextExcluded = [...new Set([...excluded, id])];
+    const nextExcluded = id ? [...new Set([...excluded, id])] : excluded;
     setSwapping(true); setMealError(""); setAlternativeMessage("");
     try {
-      const result = await getRecommendation(userId, hallSlug, profile, { excluded_item_ids: nextExcluded, meal: recommendation.meal, at: menuAt.current, meal_calorie_target: recommendation.target_calories });
+      const result = await getRecommendation(userId, hallSlug, profile, { excluded_item_ids: nextExcluded, meal: recommendation.meal, at: menuAt.current, meal_calorie_target: recommendation.target_calories, previous_item_ids: recommendation.plate.map(item => item.id), locked_items: recommendation.plate.filter(item => lockedFoods.has(item.id) && item.id !== id).map(item => ({ food_id: item.id, servings: item.servings })) });
       if (version !== requestVersion.current) return;
       if (result.data_source !== "nutrislice") throw new Error("Live alternatives are unavailable right now. Your original plate was kept; try refreshing or choose another hall.");
-      setRecommendation(result); setExcluded(nextExcluded); setCompleted(new Set());
+      setRecommendation(result); setExcluded(nextExcluded); setLockedFoods(current => new Set([...current].filter(key => result.plate.some(item => item.id === key)))); setCompleted(new Set());
       setAlternativeMessage(result.plate.length ? `Alternative plate ready: ${Math.round(result.progress.total.calories)} kcal, ${Math.round(Math.abs(result.progress.total.calories - result.target_calories))} kcal ${result.progress.total.calories > result.target_calories ? "above" : "below"} your meal target. Review the new portions.` : "No alternatives remain with your dietary filters. Try another dining hall.");
     } catch (err) { if (version === requestVersion.current) setMealError(err instanceof Error ? err.message : "Could not find alternatives."); }
     finally { if (version === requestVersion.current) setSwapping(false); }
+  };
+
+  const rateFood = async (id: string, rating: -1 | 0 | 1) => {
+    if (!recommendation || plateLocked) return;
+    const version = requestVersion.current;
+    setFeedbackBusy(true); setMealError("");
+    try {
+      await saveFoodFeedback(hallSlug, id, rating);
+      if (version !== requestVersion.current) return;
+      setFeedbackVersion(value => value + 1);
+      setRecommendation(current => current ? { ...current, feedback: { ...current.feedback, [id]: rating } } : current);
+      setAlternativeMessage(rating === -1 ? "Dislike saved. This food will be excluded from future suggestions. Choose another plate to replace it." : rating === 1 ? "Like saved. Future plates will favor this food." : "Food preference cleared.");
+      if (rating === -1) setLockedFoods(current => new Set([...current].filter(key => key !== id)));
+    } catch (err) { if (version === requestVersion.current) setMealError(err instanceof Error ? err.message : "Could not save food preference."); }
+    finally { setFeedbackBusy(false); }
   };
 
   const recordMeal = async () => {
@@ -389,7 +408,7 @@ function Dashboard({ userId, profile, onEdit, onSignOut }: { userId: string; pro
     if (!pendingLog.current) {
       const eaten = recommendation.plate.filter(item => completed.has(item.id));
       if (!eaten.length || recommendation.data_source !== "nutrislice") return;
-      pendingLog.current = { id: crypto.randomUUID(), consumed_at: new Date().toISOString(), hall_slug: recommendation.hall.slug, meal: recommendation.meal, items: eaten.map(item => ({ id: item.id, name: item.name, portion_label: item.portion_label, calories: item.line_nutrition.calories })) };
+      pendingLog.current = { id: crypto.randomUUID(), consumed_at: new Date().toISOString(), hall_slug: recommendation.hall.slug, meal: recommendation.meal, items: eaten.map(item => ({ id: item.id, name: item.name, portion_label: item.portion_label, calories: item.line_nutrition.calories, nutrition: item.line_nutrition, missing_nutrients: item.missing_nutrients })) };
     }
     logLock.current = true; setSavingMeal(true); setMealError("");
     try {
@@ -433,7 +452,11 @@ function Dashboard({ userId, profile, onEdit, onSignOut }: { userId: string; pro
       line_nutrition: scaleNutrition(item.nutrition, servings),
     } : item);
     const total = plate.reduce((sum, item) => addNutrition(sum, item.line_nutrition), emptyNutrition());
-    setRecommendation({ ...recommendation, plate, progress: { ...recommendation.progress, total } });
+    const error = Math.round(Math.abs(total.calories - recommendation.target_calories));
+    setRecommendation({ ...recommendation, plate,
+      estimated_calorie_range: [Math.round(total.calories * .9), Math.round(total.calories * 1.1)],
+      explanation: recommendation.explanation?.map(line => line.includes("kcal from your meal target;") ? `${error} kcal from your meal target; portions adjusted by you.` : line),
+      progress: { ...recommendation.progress, total, calorie_match_percent: Math.max(0, Math.round(100 - error / Math.max(recommendation.target_calories, 1) * 100)) } });
   };
 
   const currentHall = halls.find((hall) => hall.slug === hallSlug) || halls[0];
@@ -490,6 +513,7 @@ function Dashboard({ userId, profile, onEdit, onSignOut }: { userId: string; pro
         {extraNotice && <p className="journal-status" role="status">{extraNotice}</p>}
         {showExtra ? <ExtraFoods hall={currentHall} profile={profile} onClose={() => setShowExtra(false)} onSaved={() => { setShowExtra(false); setExtraNotice("Extra foods saved. Your daily total and next suggestion have been updated."); setHistoryVersion(v => v + 1); load(); }} /> : <button className="button secondary extra-open" disabled={!hallAvailable || loading || savingMeal || swapping || !!pendingLog.current} onClick={() => { setExtraNotice(""); setShowExtra(true); }}>Ate something else? <Plus size={17} aria-hidden="true" /></button>}
 
+        <PlannerSettings feedbackVersion={feedbackVersion} disabled={savingMeal || swapping || feedbackBusy || !!pendingLog.current} onSaved={load} />
         <AnimatePresence mode="wait">
           {loading ? <PlateSkeleton key="loading" /> : error ? <ErrorState key="error" message={error} onRetry={load} /> : !hallAvailable ? <section className="closed-hall" role="status"><Clock3 size={26} /><h2>{currentHall.short_name} is closed</h2><p>Plate building is disabled. Select an open dining hall or come back during service.</p><p>{currentHall.hours}</p><small>Based on configured regular hours; holiday hours may differ.</small></section> : recommendation && (
             activeView === "today" ? (
@@ -503,7 +527,8 @@ function Dashboard({ userId, profile, onEdit, onSignOut }: { userId: string; pro
 
                 {recommendation.note && <div className="data-note"><AlertTriangle size={16} /><span>{recommendation.note}</span></div>}
                 {recommendation.planning_note && <p className="journal-status">{recommendation.planning_note}</p>}
-                <div className="alternative-help"><strong>Something unavailable?</strong><p>Tap “Not available” on a food to rebuild your plate near the same calorie target. Menu listings don’t guarantee station stock.</p>{excluded.length > 0 && <small>{excluded.length} unavailable foods excluded · Refresh menu to reset.</small>}</div>
+                <details className="plate-explanation"><summary>Why this plate? {recommendation.template}</summary>{recommendation.explanation?.map((line, index) => <p key={index}>{line}</p>)}{recommendation.estimated_calorie_range && <p>Portion sensitivity: {recommendation.estimated_calorie_range[0]}–{recommendation.estimated_calorie_range[1]} kcal for ±10% portions.</p>}</details>
+                <div className="alternative-help"><strong>Make this plate yours</strong><p>Keep foods you want to preserve, save likes or dislikes, or request a different combination. “Not available” only excludes food until you refresh.</p><button className="button secondary" disabled={plateLocked || !recommendation.plate.length} onClick={() => findAlternative()}>Find another plate</button>{excluded.length > 0 && <small>{excluded.length} unavailable foods excluded · Refresh menu to reset.</small>}</div>
                 {alternativeMessage && <p className="journal-status" role="status">{alternativeMessage}</p>}
                 {swapping && <p className="journal-status" role="status">Finding another plate with your dietary filters…</p>}
                 {mealError && <p className="journal-error" role="alert">{mealError}</p>}
@@ -519,7 +544,7 @@ function Dashboard({ userId, profile, onEdit, onSignOut }: { userId: string; pro
 
                 <div className="plate-list">
                   {recommendation.plate.length ? recommendation.plate.map((item) => (
-                    <FoodRow key={item.id} item={item} disabled={plateLocked} canSwap={recommendation.data_source === "nutrislice"} onUnavailable={() => findAlternative(item.id)} checked={completed.has(item.id)} onCheck={() => setCompleted((current) => { const next = new Set(current); next.has(item.id) ? next.delete(item.id) : next.add(item.id); return next; })} onServings={(value) => setServings(item.id, value)} />
+                    <FoodRow key={item.id} item={item} disabled={plateLocked} canSwap={recommendation.data_source === "nutrislice"} onUnavailable={() => findAlternative(item.id)} locked={lockedFoods.has(item.id)} rating={recommendation.feedback?.[item.id] || 0} onLock={() => setLockedFoods(current => { const next = new Set(current); next.has(item.id) ? next.delete(item.id) : next.add(item.id); return next; })} onRate={rating => rateFood(item.id, rating)} checked={completed.has(item.id)} onCheck={() => setCompleted((current) => { const next = new Set(current); next.has(item.id) ? next.delete(item.id) : next.add(item.id); return next; })} onServings={(value) => setServings(item.id, value)} />
                   )) : <div className="empty-plate"><WheatOff size={26} /><strong>{recommendation.target_calories === 0 ? "Daily goal reached" : "No matching plate found"}</strong><p>{recommendation.target_calories === 0 ? "You can still log anything else you eat. Calorie needs vary; this is a planning guide, not a limit on eating." : "Try another hall or revisit your dietary settings. Always ask dining staff for help."}</p></div>}
                 </div>
 
@@ -533,8 +558,8 @@ function Dashboard({ userId, profile, onEdit, onSignOut }: { userId: string; pro
                   <div className="card-heading"><div><span>Daily targets</span><strong>Your bigger picture</strong></div><CircleUserRound size={21} /></div>
                   <DailyStat label="Calories" value={`${profile.daily_calorie_goal.toLocaleString()} kcal`} detail="daily target" />
                   <DailyStat label="Protein" value={`${profile.protein_goal_g} g`} detail={`${Math.round(total.protein_g)} g on this plate`} />
-                  <DailyStat label="Fiber" value={`${profile.fiber_goal_g} g`} detail={`${Math.round(total.fiber_g)} g on this plate`} />
-                  <DailyStat label="Sodium" value={`< ${profile.sodium_limit_mg.toLocaleString()} mg`} detail={`${Math.round(total.sodium_mg)} mg on this plate`} />
+                  <DailyStat label="Fiber" value={`${profile.fiber_goal_g} g`} detail={recommendation.plate.some(item => item.missing_nutrients?.includes("fiber_g")) ? "Incomplete menu data" : `${Math.round(total.fiber_g)} g on this plate`} />
+                  <DailyStat label="Sodium" value={`< ${profile.sodium_limit_mg.toLocaleString()} mg`} detail={recommendation.plate.some(item => item.missing_nutrients?.includes("sodium_mg")) ? "Incomplete menu data" : `${Math.round(total.sodium_mg)} mg on this plate`} />
                   <button className="text-button" onClick={onEdit}>Edit nutrition targets <ArrowRight size={15} /></button>
                 </div>
               </aside>
@@ -585,13 +610,18 @@ function TodayOverview({ recommendation, profile, currentHall, onOpenPlate }: { 
   );
 }
 
-function FoodRow({ item, checked, disabled, canSwap, onUnavailable, onCheck, onServings }: { item: PlateItem; checked: boolean; disabled: boolean; canSwap: boolean; onUnavailable: () => void; onCheck: () => void; onServings: (value: number) => void }) {
+function FoodRow({ item, checked, disabled, canSwap, onUnavailable, onCheck, onServings, locked, rating, onLock, onRate }: { item: PlateItem; checked: boolean; disabled: boolean; canSwap: boolean; onUnavailable: () => void; onCheck: () => void; onServings: (value: number) => void; locked: boolean; rating: number; onLock: () => void; onRate: (rating: -1 | 0 | 1) => void }) {
+  const options = item.portion_options?.length ? item.portion_options : [0.5, 1, 1.5, 2];
+  const index = options.findIndex(value => Math.abs(value - item.servings) < 0.00001);
   return (
     <article className={`food-row ${checked ? "checked" : ""}`}>
       <button className="food-check" disabled={disabled} onClick={onCheck} aria-pressed={checked} aria-label={`Mark ${item.name} eaten`}>{checked && <Check size={16} />}</button>
       <div className={`food-icon ${item.category}`}><FoodGlyph category={item.category} /></div>
-      <div className="food-info"><div className="food-title"><h3>{item.name}</h3>{item.dietary_tags.slice(0, 1).map((tag) => <span key={tag}>{tag.replace("-", " ")}</span>)}</div><p>{item.station} · {item.why}</p><div className="food-macros"><span><strong>{Math.round(item.line_nutrition.calories)}</strong> kcal</span><span><strong>{Math.round(item.line_nutrition.protein_g)}g</strong> protein</span><span><strong>{Math.round(item.line_nutrition.carbs_g)}g</strong> carbs</span></div></div>
-      <div className="portion-control"><span>Portion</span><strong>{item.portion_label}</strong><div><button onClick={() => onServings(Math.max(0.5, item.servings - 0.5))} disabled={disabled || item.servings <= 0.5} title="Decrease portion"><Minus size={14} /></button><span>{item.servings}×</span><button onClick={() => onServings(Math.min(3, item.servings + 0.5))} disabled={disabled || item.servings >= 3} title="Increase portion"><Plus size={14} /></button></div></div>
+      <div className="food-info"><div className="food-title"><h3>{item.name}</h3>{item.dietary_tags.slice(0, 1).map((tag) => <span key={tag}>{tag.replace("-", " ")}</span>)}</div><p>{item.station} · {item.why}</p><div className="food-macros"><span><strong>{Math.round(item.line_nutrition.calories)}</strong> kcal</span><span><strong>{Math.round(item.line_nutrition.protein_g)}g</strong> protein</span><span><strong>{Math.round(item.line_nutrition.carbs_g)}g</strong> carbs</span></div>
+        <div className="food-preferences"><button disabled={disabled || rating === -1} aria-pressed={locked} onClick={onLock}>{locked ? "Kept ✓" : "Keep on plate"}</button><button disabled={disabled} aria-pressed={rating === 1} onClick={() => onRate(rating === 1 ? 0 : 1)}>Like</button><button disabled={disabled} aria-pressed={rating === -1} onClick={() => onRate(rating === -1 ? 0 : -1)}>Dislike</button></div>
+        {!!item.missing_nutrients?.length && <small>Missing: {item.missing_nutrients.map(key => key.replace("_g", "").replace("_mg", "")).join(", ")}. Totals are incomplete.</small>}
+      </div>
+      <div className="portion-control"><span>Portion</span><strong>{item.portion_label}</strong><div><button onClick={() => onServings(options[index - 1])} disabled={disabled || locked || index <= 0} title="Decrease portion"><Minus size={14} /></button><span>{Number(item.servings.toFixed(2))}×</span><button onClick={() => onServings(options[index + 1])} disabled={disabled || locked || index < 0 || index >= options.length - 1} title="Increase portion"><Plus size={14} /></button></div></div>
       <button className="unavailable-button" disabled={disabled || !canSwap} onClick={onUnavailable} aria-label={`${item.name} is not available`}>Not available · Find alternatives</button>
     </article>
   );
@@ -635,7 +665,7 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 function emptyNutrition(): Nutrition { return { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0, sodium_mg: 0 }; }
 function scaleNutrition(nutrition: Nutrition, factor: number): Nutrition { return Object.fromEntries(Object.entries(nutrition).map(([key, value]) => [key, value * factor])) as Nutrition; }
 function addNutrition(a: Nutrition, b: Nutrition): Nutrition { return Object.fromEntries(Object.keys(a).map((key) => [key, a[key as keyof Nutrition] + b[key as keyof Nutrition]])) as Nutrition; }
-function portion(item: PlateItem, servings: number) { const amount = item.serving_amount * servings; return `${Number.isInteger(amount) ? amount : amount.toFixed(1)} ${item.serving_unit}${amount > 1 && ["cup", "piece", "slice", "serving"].includes(item.serving_unit) ? "s" : ""}`; }
+function portion(item: PlateItem, servings: number) { const amount = item.serving_amount * servings; if (["lb", "lbs", "pound", "pounds"].includes(item.serving_unit.toLowerCase())) return `${Number((amount * 16).toFixed(2))} oz`; return `${Number(amount.toFixed(3))} ${item.serving_unit}${amount > 1 && ["cup", "piece", "slice", "serving"].includes(item.serving_unit) ? "s" : ""}`; }
 function dayPart() { const hour = new Date().getHours(); return hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening"; }
 function titleCase(value: string) { return value.charAt(0).toUpperCase() + value.slice(1); }
 function formatDate(value: string) { return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" }).format(new Date(`${value}T12:00:00`)); }

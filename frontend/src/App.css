@@ -3519,3 +3519,19 @@ footer {
     padding: var(--panel-padding);
   }
 }
+
+.planner-settings, .plate-explanation { margin: 16px 0; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--ink); }
+.planner-settings summary, .plate-explanation summary { cursor: pointer; font-weight: 650; }
+.planner-settings fieldset { border: 0; padding: 16px 0 0; min-width: 0; }
+.planner-settings fieldset > label { display: grid; gap: 6px; margin: 14px 0; font-size: 14px; }
+.planner-settings input:not([type="checkbox"]), .planner-settings select { padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--soft); color: var(--ink); width: 100%; box-sizing: border-box; font: inherit; }
+.planner-settings p, .plate-explanation p { font-size: 13px; line-height: 1.5; color: var(--muted); }
+.planner-choices, .food-preferences { display: flex; flex-wrap: wrap; gap: 10px; }
+.planner-choices label { display: flex; gap: 6px; align-items: center; text-transform: capitalize; }
+.food-preferences { margin-top: 10px; }
+.food-preferences button { background: var(--soft); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-height: 36px; font: inherit; font-size: 12px; cursor: pointer; }
+.food-preferences button[aria-pressed="true"] { background: var(--green-soft); border-color: var(--blue); }
+.food-preferences button:disabled { opacity: .5; cursor: default; }
+.food-info small { display: block; margin-top: 8px; color: var(--gold); }
+.saved-food-preferences > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 0; font-size: 13px; }
+@media (max-width: 600px) { .food-preferences button { min-height: 44px; } }

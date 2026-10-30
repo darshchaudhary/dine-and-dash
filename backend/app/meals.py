@@ -5,7 +5,7 @@ from typing import Literal
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +17,7 @@ from .nutrislice import hall_details, meal_for_time
 from .nutrislice import get_menu
 from . import planning
 from .recommendations import _portion
+from .schemas import MenuNutrition
 
 router = APIRouter(prefix="/api/meals", tags=["Meal history"])
 EASTERN = ZoneInfo("America/New_York")
@@ -28,6 +29,14 @@ class EatenItem(BaseModel):
     portion_label: str = Field(min_length=1, max_length=100)
     # User-confirmed estimates are snapshots: menu changes must not alter history.
     calories: float = Field(ge=0, le=10000, allow_inf_nan=False)
+    nutrition: MenuNutrition | None = None
+    missing_nutrients: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def mark_partial_snapshot(self):
+        if self.nutrition is not None:
+            self.missing_nutrients = sorted(set(self.missing_nutrients) | (set(MenuNutrition.model_fields) - self.nutrition.model_fields_set))
+        return self
 
 
 class MealCreate(BaseModel):
@@ -134,7 +143,9 @@ def selected_items(menu, selections):
         if not food or not food.nutrition_complete:
             raise HTTPException(409, "A selected food is no longer listed or has incomplete nutrition. Search again.")
         items.append(EatenItem(id=food.id, name=food.name, portion_label=_portion(food, selection.servings),
-                               calories=round(food.nutrition.calories * selection.servings, 2)))
+                               calories=round(food.nutrition.calories * selection.servings, 2),
+                               nutrition=MenuNutrition(**{key: getattr(food.nutrition, key) * selection.servings for key in MenuNutrition.model_fields}),
+                               missing_nutrients=food.missing_nutrients))
     return items
 
 

@@ -31,10 +31,14 @@ async def consumed_today(db, account_id, at):
     )))
 
 
-def remaining_target(daily_goal, consumed, meal):
+def remaining_target(daily_goal, consumed, meal, planned_meals=None):
     remaining = max(0, daily_goal - consumed)
     # Reserve a share for later services; snack/extra-food log rows do not count
     # as entire meals. These are planning weights, not a change to saved goals.
     weights = {"breakfast": (0.25, 1.0), "lunch": (0.35, 0.75), "dinner": (0.4, 0.4), "overnight": (1, 1)}
     weight, remaining_weight = weights.get(meal, (1, 1))
+    if planned_meals:
+        order = ["breakfast", "lunch", "dinner", "overnight"]
+        later = [name for name in planned_meals if order.index(name) > order.index(meal)]
+        remaining_weight = weight + sum(weights[name][0] for name in later)
     return min(2500, max(1, round(remaining * weight / remaining_weight))) if remaining > 0 else 0

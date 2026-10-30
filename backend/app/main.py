@@ -16,6 +16,7 @@ from .auth import current_account, router as auth_router
 from .security import BodyLimitMiddleware
 from .meals import router as meals_router
 from . import planning
+from .planner import context_for, router as planner_router
 from .nutrislice import all_halls, get_menu, meal_for_time
 from .recommendations import recommend
 from .schemas import (
@@ -59,7 +60,7 @@ async def protect_requests(request, call_next):
         if (origin and origin not in allowed_origins) or request.headers.get("x-dinedash-client") not in {"web", "native"}:
             return JSONResponse({"detail": "Request origin not allowed."}, status_code=403)
     response = await call_next(request)
-    if request.url.path.startswith(("/api/auth", "/api/profiles", "/api/recommendations", "/api/meals")):
+    if request.url.path.startswith(("/api/auth", "/api/profiles", "/api/recommendations", "/api/meals", "/api/planner")):
         response.headers["Cache-Control"] = "no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
     return response
@@ -73,6 +74,7 @@ async def validation_error(request, exc):
 
 app.include_router(auth_router)
 app.include_router(meals_router)
+app.include_router(planner_router)
 app.add_middleware(BodyLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
@@ -160,15 +162,16 @@ async def recommendations(
     planning.open_hall(payload.hall_slug, at)
     consumed = await planning.consumed_today(session, account.id, at)
     meal = meal_for_time(at, payload.hall_slug)
-    target = planning.remaining_target(profile.daily_calorie_goal, consumed, meal)
+    context = await context_for(session, account.id, at)
+    target = planning.remaining_target(profile.daily_calorie_goal, consumed, meal, context.options.planned_meals)
     # Never accept an old/future timestamp or target to bypass closing hours or
     # today's consumption. Alternatives are recomputed from the current service.
     payload = payload.model_copy(update={"at": at, "meal": meal, "meal_calorie_target": target})
     try:
-        result = await recommend(profile, payload)
+        result = await recommend(profile, payload, context)
         result.consumed_today_calories = round(consumed, 2)
         result.remaining_today_calories = round(max(0, profile.daily_calorie_goal - consumed), 2)
-        result.planning_note = f"{round(consumed)} kcal logged today; {round(result.remaining_today_calories)} kcal remaining toward your saved goal. The meal target reserves calories for later services."
+        result.planning_note = f"{round(consumed)} kcal logged today; {round(result.remaining_today_calories)} kcal remaining toward your saved goal. The meal target uses your remaining planned meals."
         return result
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

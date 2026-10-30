@@ -1,6 +1,6 @@
 export type Account = { id: string; email: string };
 
-export type EatenItem = { id: string; name: string; portion_label: string; calories: number };
+export type EatenItem = { id: string; name: string; portion_label: string; calories: number; nutrition?: Nutrition; missing_nutrients?: string[] };
 export type MealRecord = {
   id: string; consumed_at: string; hall_slug: string; hall_name: string;
   meal: string; items: EatenItem[]; calories: number; voided: boolean;
@@ -66,6 +66,9 @@ export type PlateItem = {
   allergens: string[];
   dietary_tags: string[];
   why: string;
+  portion_options?: number[];
+  missing_nutrients?: string[];
+  roles?: string[];
 };
 
 export type Recommendation = {
@@ -84,4 +87,26 @@ export type Recommendation = {
   consumed_today_calories?: number;
   remaining_today_calories?: number;
   planning_note?: string;
+  optimizer?: string;
+  solver_status?: string;
+  template?: string;
+  solve_ms?: number;
+  estimated_calorie_range?: [number, number];
+  explanation?: string[];
+  feedback?: Record<string, number>;
+};
+
+export type PlannerOptions = {
+  planned_meals: ("breakfast" | "lunch" | "dinner")[];
+  favorite_terms: string[];
+  avoided_terms: string[];
+  mode: "balanced" | "favorites" | "convenient";
+};
+export type PlateRequestOptions = {
+  excluded_item_ids?: string[];
+  previous_item_ids?: string[];
+  locked_items?: { food_id: string; servings: number }[];
+  meal?: string;
+  at?: string;
+  meal_calorie_target?: number;
 };

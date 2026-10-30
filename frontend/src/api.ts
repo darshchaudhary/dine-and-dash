@@ -1,4 +1,4 @@
-import type { Account, CurrentMenu, Hall, MealHistory, MealRecord, MenuMealInput, PastMealContext, PastMealInput, Profile, Recommendation } from "./types";
+import type { PlannerOptions, PlateRequestOptions, Account, CurrentMenu, Hall, MealHistory, MealRecord, MenuMealInput, PastMealContext, PastMealInput, Profile, Recommendation } from "./types";
 import { authHeaders, clearSession, native, storeSession } from "./auth";
 
 function resolveApiUrl() {
@@ -64,9 +64,9 @@ const easternHour = easternNow.getHours() + easternNow.getMinutes() / 60;
 const weekend = easternDay === 0 || easternDay === 6;
 
 export const HALLS: Hall[] = [
-  { id: 40536, slug: "brittain", name: "Brittain Dining Hall", short_name: "Brittain", hours: "Mon–Fri · 11 AM–10 PM", open_now: !weekend && easternHour >= 11 && easternHour < 22, available_meals: ["lunch", "dinner"] },
-  { id: 40132, slug: "north-ave-dining-hall", name: "North Ave Dining Hall", short_name: "North Ave", hours: "Weekdays 7 AM–10 PM", open_now: easternHour >= (weekend ? 9 : 7) && easternHour < (weekend ? 21 : 22), available_meals: ["breakfast", "lunch", "dinner", "overnight"] },
-  { id: 40126, slug: "west-village", name: "West Village", short_name: "West Village", hours: "Weekdays 7 AM–10 PM", open_now: easternHour >= (weekend ? 9 : 7) && easternHour < (weekend ? 21 : 22), available_meals: ["breakfast", "lunch", "dinner"] },
+  { id: 40536, slug: "brittain", name: "Brittain Dining Hall", short_name: "Brittain", hours: "Mon–Fri · 11 AM–11 PM · Weekends closed", open_now: !weekend && easternHour >= 11 && easternHour < 23, available_meals: ["lunch", "dinner"] },
+  { id: 40132, slug: "north-ave-dining-hall", name: "North Ave Dining Hall", short_name: "North Ave", hours: "Mon–Fri 7 AM–11 PM · Weekends 9 AM–9 PM", open_now: easternHour >= (weekend ? 9 : 7) && easternHour < (weekend ? 21 : 23), available_meals: ["breakfast", "lunch", "dinner", "overnight"] },
+  { id: 40126, slug: "west-village", name: "West Village", short_name: "West Village", hours: "Mon–Fri 7 AM–11 PM · Weekends 9 AM–9 PM", open_now: easternHour >= (weekend ? 9 : 7) && easternHour < (weekend ? 21 : 23), available_meals: ["breakfast", "lunch", "dinner"] },
 ];
 
 export async function getProfile(userId: string): Promise<Profile | null> {
@@ -92,7 +92,7 @@ export async function fetchHalls(): Promise<Hall[]> {
   }
 }
 
-export async function getRecommendation(userId: string, hallSlug: string, profile: Profile, alternatives?: { excluded_item_ids: string[]; meal: string; at: string; meal_calorie_target: number }): Promise<Recommendation> {
+export async function getRecommendation(userId: string, hallSlug: string, profile: Profile, alternatives?: PlateRequestOptions): Promise<Recommendation> {
   try {
     return await request("/api/recommendations", {
       method: "POST",
@@ -195,4 +195,20 @@ function easternDate() {
 function formatPortion(amount: number, unit: string) {
   const suffix = amount > 1 && ["cup", "piece", "slice", "serving"].includes(unit) ? "s" : "";
   return `${Number.isInteger(amount) ? amount : amount.toFixed(1)} ${unit}${suffix}`;
+}
+
+export async function getPlannerOptions(): Promise<PlannerOptions> {
+  return request("/api/planner");
+}
+export async function savePlannerOptions(options: PlannerOptions): Promise<PlannerOptions> {
+  return request("/api/planner", { method: "PUT", body: JSON.stringify(options) });
+}
+export async function saveFoodFeedback(hallSlug: string, foodId: string, rating: -1 | 0 | 1): Promise<void> {
+  return request("/api/planner/feedback", { method: "PUT", body: JSON.stringify({ hall_slug: hallSlug, food_id: foodId, rating }) });
+}
+export async function getFoodPreferences(): Promise<{ food_id: string; name: string; rating: number }[]> {
+  return request("/api/planner/feedback");
+}
+export async function clearFoodPreference(foodId: string): Promise<void> {
+  return request(`/api/planner/feedback/${encodeURIComponent(foodId)}`, { method: "DELETE" });
 }

@@ -31,7 +31,7 @@ def menu_clock(monkeypatch):
 
 
 def test_closing_hours_boundaries():
-    for at in [datetime(2026, 9, 14, 10, 59, tzinfo=EASTERN), datetime(2026, 9, 14, 22, tzinfo=EASTERN), datetime(2026, 9, 19, 12, tzinfo=EASTERN)]:
+    for at in [datetime(2026, 9, 14, 10, 59, tzinfo=EASTERN), datetime(2026, 9, 14, 23, tzinfo=EASTERN), datetime(2026, 9, 19, 12, tzinfo=EASTERN)]:
         with pytest.raises(HTTPException) as exc:
             planning.open_hall("brittain", at)
         assert exc.value.status_code == 409
@@ -44,7 +44,7 @@ async def test_closed_hall_cannot_be_bypassed_with_old_timestamp(setup, menu_clo
     user = await register(client)
     headers = bearer(user)
     await client.put('/api/profiles/'+user['user']['id'], json=PROFILE, headers=headers)
-    menu_clock[0] = datetime(2026, 9, 14, 22, tzinfo=EASTERN)
+    menu_clock[0] = datetime(2026, 9, 14, 23, tzinfo=EASTERN)
     response = await client.post('/api/recommendations', headers=headers, json={"user_id": user['user']['id'], "hall_slug": "north-ave-dining-hall", "at": "2026-09-14T12:00:00-04:00"})
     assert response.status_code == 409
     assert (await client.get('/api/meals/menu?hall_slug=north-ave-dining-hall', headers=headers)).status_code == 409
@@ -129,3 +129,30 @@ async def test_no_demo_fallback_in_search_or_recommendations(setup, menu_clock, 
     await client.put('/api/profiles/'+user['user']['id'], json=PROFILE, headers=headers)
     assert (await client.get('/api/meals/menu?hall_slug=brittain', headers=headers)).status_code == 503
     assert (await client.post('/api/recommendations', json={"user_id": user['user']['id'], "hall_slug": "brittain"}, headers=headers)).status_code == 503
+
+
+@pytest.mark.parametrize("slug", ["brittain", "north-ave-dining-hall", "west-village"])
+@pytest.mark.parametrize("hour,minute,expected", [(22, 0, True), (22, 59, True), (23, 0, False)])
+def test_weekday_closing_matches_published_hours(slug, hour, minute, expected):
+    hall = hall_details(slug, datetime(2026, 10, 23, hour, minute, tzinfo=EASTERN))
+    assert hall.open_now is expected
+    assert "11 PM" in hall.hours
+
+
+@pytest.mark.parametrize("slug", ["north-ave-dining-hall", "west-village"])
+@pytest.mark.parametrize("day", [24, 25])
+@pytest.mark.parametrize("hour,minute,expected", [(8, 59, False), (9, 0, True), (20, 59, True), (21, 0, False)])
+def test_weekend_opening_and_closing(slug, day, hour, minute, expected):
+    at = datetime(2026, 10, day, hour, minute, tzinfo=EASTERN)
+    assert hall_details(slug, at).open_now is expected
+    assert not hall_details("brittain", at).open_now
+
+
+@pytest.mark.parametrize("slug,start", [("brittain", 11), ("north-ave-dining-hall", 7), ("west-village", 7)])
+def test_weekday_opening_uses_eastern_time(slug, start):
+    from datetime import timezone
+
+    before = datetime(2026, 10, 23, start - 1, 59, tzinfo=EASTERN)
+    opening = datetime(2026, 10, 23, start, tzinfo=EASTERN)
+    assert not hall_details(slug, before.astimezone(timezone.utc)).open_now
+    assert hall_details(slug, opening.astimezone(timezone.utc)).open_now

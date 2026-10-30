@@ -9,9 +9,12 @@ The app includes:
 - Live Nutrislice integration for Brittain, North Avenue, and West Village
 - Automatic meal selection based on the current time in `America/New_York`
 - Allergen and dietary filtering before recommendation scoring
-- A bounded plate optimizer that balances calories, protein, fiber, sodium, and food-group variety
+- A bounded integer plate optimizer with practical portions, meal structure, calorie and macro targets, and a validated beam-search fallback
+- Account-owned meal plans, likes/dislikes, kept foods, diverse alternatives, and remaining-day nutrient planning
 - Honest handling of missing upstream nutrition and a clearly labeled demo fallback
 - A responsive React interface with keyboard-friendly controls and reduced-motion support
+
+See [the plate planner guide](PLATE_PLANNER.md) for the algorithm, controls, API, deployment, and real-menu benchmark.
 
 ## Architecture
 

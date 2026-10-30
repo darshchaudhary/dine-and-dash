@@ -35,12 +35,12 @@ class Profile(ProfileUpsert):
 
 
 class MenuNutrition(BaseModel):
-    calories: float = 0
-    protein_g: float = 0
-    carbs_g: float = 0
-    fat_g: float = 0
-    fiber_g: float = 0
-    sodium_mg: float = 0
+    calories: float = Field(default=0, ge=0, le=100000, allow_inf_nan=False)
+    protein_g: float = Field(default=0, ge=0, le=100000, allow_inf_nan=False)
+    carbs_g: float = Field(default=0, ge=0, le=100000, allow_inf_nan=False)
+    fat_g: float = Field(default=0, ge=0, le=100000, allow_inf_nan=False)
+    fiber_g: float = Field(default=0, ge=0, le=100000, allow_inf_nan=False)
+    sodium_mg: float = Field(default=0, ge=0, le=100000, allow_inf_nan=False)
 
 
 class MenuFood(BaseModel):
@@ -55,6 +55,9 @@ class MenuFood(BaseModel):
     dietary_tags: list[str] = []
     ingredients: str = ""
     nutrition_complete: bool = True
+    missing_nutrients: list[str] = Field(default_factory=list)
+    portion_options: list[float] = Field(default_factory=list)
+    roles: list[str] = Field(default_factory=list)
 
 
 class DiningHall(BaseModel):
@@ -78,6 +81,38 @@ class MenuResponse(BaseModel):
     note: str | None = None
 
 
+class PlannerOptions(BaseModel):
+    planned_meals: list[Literal["breakfast", "lunch", "dinner"]] = Field(default_factory=lambda: ["breakfast", "lunch", "dinner"], min_length=1, max_length=3)
+    favorite_terms: list[str] = Field(default_factory=list, max_length=20)
+    avoided_terms: list[str] = Field(default_factory=list, max_length=20)
+    mode: Literal["balanced", "favorites", "convenient"] = "balanced"
+
+    @field_validator("favorite_terms", "avoided_terms")
+    @classmethod
+    def clean_terms(cls, values):
+        if any(len(value) > 80 for value in values):
+            raise ValueError("Food preferences must be at most 80 characters each.")
+        return sorted({value.strip().casefold() for value in values if value.strip()})
+
+    @field_validator("planned_meals")
+    @classmethod
+    def unique_meals(cls, values):
+        if len(set(values)) != len(values):
+            raise ValueError("Select each planned meal once.")
+        return values
+
+
+class LockedFood(BaseModel):
+    food_id: str = Field(min_length=1, max_length=200)
+    servings: float = Field(gt=0, le=3, allow_inf_nan=False)
+
+
+class FoodFeedback(BaseModel):
+    hall_slug: str
+    food_id: str = Field(min_length=1, max_length=200)
+    rating: Literal[-1, 0, 1]
+
+
 class RecommendationRequest(BaseModel):
     user_id: str = Field(min_length=1, max_length=64)
     hall_slug: str
@@ -85,6 +120,8 @@ class RecommendationRequest(BaseModel):
     meal: str | None = None
     meal_calorie_target: int | None = Field(default=None, ge=1, le=2500)
     excluded_item_ids: list[str] = Field(default_factory=list, max_length=100)
+    previous_item_ids: list[str] = Field(default_factory=list, max_length=4)
+    locked_items: list[LockedFood] = Field(default_factory=list, max_length=4)
 
 
 class PlateItem(MenuFood):
@@ -116,3 +153,10 @@ class RecommendationResponse(BaseModel):
     consumed_today_calories: float = 0
     remaining_today_calories: float | None = None
     planning_note: str | None = None
+    optimizer: str = "heuristic"
+    solver_status: str = "unknown"
+    solve_ms: float = 0
+    template: str = "Flexible meal"
+    estimated_calorie_range: tuple[int, int] | None = None
+    explanation: list[str] = Field(default_factory=list)
+    feedback: dict[str, int] = Field(default_factory=dict)

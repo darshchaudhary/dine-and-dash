@@ -67,3 +67,18 @@ class MealLog(Base):
     items: Mapped[list[dict]] = mapped_column(json_type)
     calories: Mapped[float] = mapped_column(Float)
     voided: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class PlannerSettings(Base):
+    """Separate table keeps upgrades additive for existing installations."""
+    __tablename__ = "planner_settings"
+    account_id: Mapped[str] = mapped_column(ForeignKey("accounts.id", ondelete="CASCADE"), primary_key=True)
+    settings: Mapped[dict] = mapped_column(json_type, default=dict)
+
+
+class FoodPreference(Base):
+    __tablename__ = "food_preferences"
+    account_id: Mapped[str] = mapped_column(ForeignKey("accounts.id", ondelete="CASCADE"), primary_key=True)
+    food_id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    name: Mapped[str] = mapped_column(String(200))
+    rating: Mapped[int] = mapped_column(Integer)

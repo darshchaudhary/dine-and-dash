@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 import time
 from datetime import date, datetime, time as clock_time
@@ -13,23 +14,25 @@ from .schemas import DiningHall, MenuFood, MenuNutrition, MenuResponse
 
 EASTERN = ZoneInfo("America/New_York")
 
+# Regular hours: https://dining.gatech.edu/dining-locations/hours-operation
+# Verified 2026-10-24; holiday and break schedules may differ.
 HALLS: dict[str, dict] = {
     "brittain": {
         "id": 40536,
         "name": "Brittain Dining Hall",
         "short_name": "Brittain",
-        "hours": "Mon–Fri · 11:00 AM–10:00 PM",
+        "hours": "Mon–Fri · 11 AM–11 PM · Weekends closed",
         "weekdays": {0, 1, 2, 3, 4},
-        "open": (clock_time(11), clock_time(22)),
+        "open": (clock_time(11), clock_time(23)),
         "meals": ["lunch", "dinner"],
     },
     "north-ave-dining-hall": {
         "id": 40132,
         "name": "North Ave Dining Hall",
         "short_name": "North Ave",
-        "hours": "Weekdays 7 AM–10 PM · Weekends 9 AM–9 PM",
+        "hours": "Mon–Fri 7 AM–11 PM · Weekends 9 AM–9 PM",
         "weekdays": set(range(7)),
-        "open": (clock_time(7), clock_time(22)),
+        "open": (clock_time(7), clock_time(23)),
         "weekend_open": (clock_time(9), clock_time(21)),
         "meals": ["breakfast", "lunch", "dinner", "overnight"],
     },
@@ -37,9 +40,9 @@ HALLS: dict[str, dict] = {
         "id": 40126,
         "name": "West Village",
         "short_name": "West Village",
-        "hours": "Weekdays 7 AM–10 PM · Weekends 9 AM–9 PM",
+        "hours": "Mon–Fri 7 AM–11 PM · Weekends 9 AM–9 PM",
         "weekdays": set(range(7)),
-        "open": (clock_time(7), clock_time(22)),
+        "open": (clock_time(7), clock_time(23)),
         "weekend_open": (clock_time(9), clock_time(21)),
         "meals": ["breakfast", "lunch", "dinner"],
     },
@@ -109,27 +112,33 @@ def all_halls(at: datetime | None = None) -> list[DiningHall]:
 
 
 def classify_food(name: str, station: str) -> str:
-    text = f"{name} {station}".lower()
-    if any(word in text for word in ("doughnut", "donut", "cookie", "cupcake", "cake", "brownie", "ice cream", "dessert")):
+    # A station describes location, not every food's nutritional role.
+    text = name.casefold()
+    if any(word in text for word in ("doughnut", "donut", "cookie", "cupcake", "cake", "brownie", "ice cream", "dessert", "muffin")):
         return "dessert"
-    if any(word in text for word in ("oregano", "red pepper", "olive oil", "mayonnaise", "mayo", "mustard", "dressing", "salsa", "ketchup", "seasoning")):
+    if any(word in text for word in ("oregano", "crushed red pepper", "olive oil", "mayonnaise", "mayo", "mustard", "dressing", "salsa", "ketchup", "seasoning", "vinegar", "sauce", "marinara", "grated parmesan")):
         return "condiment"
-    # Check starches before proteins so names such as "hamburger bun" and
-    # "chicken pasta" are treated as their actual plate component.
-    if any(word in text for word in ("pizza", "rice", "quinoa", "potato", "fries", "pasta", "ravioli", "spaghetti", "noodle", "bread", "bun", "roll", "tortilla", "oat", "cereal")):
+    if any(word in text for word in ("green bean", "collard", "broccoli", "cauliflower", "spinach", "carrot", "vegetable", "veggie", "zucchini", "squash", "kale", "mushroom", "cucumber", "tomato", "lettuce", "romaine", "arcadian", "cabbage", "onion", "jalapeno", "banana pepper")):
+        # Mixed starch-based dishes still cover their own roles below.
+        if not any(word in text for word in ("pizza", "pasta", "rice", "noodle", "tortilla")):
+            return "vegetable"
+    if any(word in text for word in ("pizza", "rice", "quinoa", "potato", "fries", "pasta", "ravioli", "spaghetti", "noodle", "bread", "bun", "roll", "tortilla", "oat", "cereal", "grits")):
         return "grain"
-    if any(word in text for word in ("chicken", "turkey", "beef", "pork", "fish", "tofu", "egg", "bean", "lentil", "chickpea", "burger", "ham", "salami")):
+    if any(re.search(r"\b" + word + r"\b", text) for word in ("chicken", "turkey", "beef", "pork", "fish", "tofu", "egg", "eggs", "bean", "beans", "lentil", "chickpea", "burger", "ham", "salami", "steak", "bratwurst", "bacon", "shrimp", "falafel", "pepperoni", "shawarma")):
         return "protein"
-    if any(word in text for word in ("broccoli", "cauliflower", "salad", "spinach", "green bean", "carrot", "vegetable", "veggie", "zucchini", "pepper", "squash", "kale", "soup")):
-        return "vegetable"
     if any(word in text for word in ("fruit", "apple", "orange", "banana", "berry", "melon")):
         return "fruit"
+    if "pepper" in text and "cheese" not in text:
+        return "vegetable"
+    if "salad" in text or "soup" in text:
+        return "vegetable"
     return "other"
 
 
 def _safe_float(value: object) -> float:
     try:
-        return float(value or 0)
+        result = float(value or 0)
+        return result if math.isfinite(result) and result >= 0 else 0
     except (TypeError, ValueError):
         return 0
 
@@ -139,14 +148,20 @@ def _parse_food(raw: dict, station: str) -> MenuFood | None:
     if not food or not food.get("name"):
         return None
     rounded = food.get("rounded_nutrition_info") or {}
-    nutrition = MenuNutrition(
-        calories=_safe_float(rounded.get("calories")),
-        protein_g=_safe_float(rounded.get("g_protein")),
-        carbs_g=_safe_float(rounded.get("g_carbs")),
-        fat_g=_safe_float(rounded.get("g_fat")),
-        fiber_g=_safe_float(rounded.get("g_fiber")),
-        sodium_mg=_safe_float(rounded.get("mg_sodium")),
-    )
+    keys = {"calories": "calories", "protein_g": "g_protein", "carbs_g": "g_carbs", "fat_g": "g_fat", "fiber_g": "g_fiber", "sodium_mg": "mg_sodium"}
+    missing = []
+    values = {}
+    for key, upstream in keys.items():
+        raw_value = rounded.get(upstream)
+        try:
+            value = float(raw_value)
+            if isinstance(raw_value, bool) or not math.isfinite(value) or not 0 <= value <= 100000:
+                raise ValueError("Invalid nutrition value")
+        except (TypeError, ValueError):
+            missing.append(key)
+            value = 0
+        values[key] = value
+    nutrition = MenuNutrition(**values)
     allergens: set[str] = set()
     dietary: set[str] = set()
     for icon in (food.get("icons") or {}).get("food_icons", []):
@@ -161,7 +176,9 @@ def _parse_food(raw: dict, station: str) -> MenuFood | None:
     serving = food.get("serving_size_info") or {}
     amount = _safe_float(serving.get("serving_size_amount")) or 1
     ingredients = str(food.get("ingredients") or "")
-    complete = nutrition.calories >= 10 and any(
+    # Reject extreme batch records that cannot describe a practical serving.
+    plausible = nutrition.calories <= 2000 and not ("bread" in food["name"].casefold() and "slice" in str(serving.get("serving_size_unit", "")).casefold() and nutrition.calories > 400)
+    complete = plausible and not set(missing).intersection({"calories", "protein_g", "carbs_g", "fat_g"}) and nutrition.calories > 0 and any(
         value > 0 for value in (nutrition.protein_g, nutrition.carbs_g, nutrition.fat_g)
     )
     return MenuFood(
@@ -176,6 +193,7 @@ def _parse_food(raw: dict, station: str) -> MenuFood | None:
         dietary_tags=sorted(dietary),
         ingredients=ingredients,
         nutrition_complete=complete,
+        missing_nutrients=missing,
     )
 
 
